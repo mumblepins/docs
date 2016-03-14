@@ -346,15 +346,6 @@ Particle.subscribe("the_event_prefix", theHandler, MY_DEVICES);
 
 ---
 
-You are also able to subscribe to events from a single device by specifying the device's ID.
-
-```cpp
-// Subscribe to events published from a specific device
-Particle.subscribe("motion/front-door", motionHandler, "55ff70064989495339432587");
-```
-
----
-
 You can register a method in a C++ object as a subscription handler.
 
 ```cpp
@@ -927,7 +918,7 @@ void setup() {
 
 ### RSSI()
 
-`WiFi.RSSI()` returns the signal strength of a Wi-Fi network from from -127 to -1dB as an `int`. Positive return values indicate an error with 1 indicating a Wi-Fi chip error and 2 indicating a time-out error.
+`WiFi.RSSI()` returns the signal strength of a Wi-Fi network from from -127 (weak) to -1dB (strong) as an `int`. Positive return values indicate an error with 1 indicating a Wi-Fi chip error and 2 indicating a time-out error.
 
 ```cpp
 // SYNTAX
@@ -2350,11 +2341,42 @@ To use the TX/RX (Serial1) or D1/D0 (Serial2) pins to communicate with your pers
 `Serial2:` This channel is optionally available via the device's RGB Green (TX) and Blue (RX) LED pins. The Blue and Green current limiting resistors should be removed.  To use Serial2, add #include "Serial2/Serial2.h" near the top of your app's main code file.
 
 If the user enables Serial2, they should also consider using RGB.onChange() to move the RGB functionality to an external RGB LED on some PWM pins.
-
-To use the TX/RX (Serial1) or RGB Green (TX)/Blue (RX) LED (Serial2) pins to communicate with your personal computer, you will need an additional USB-to-serial adapter. To use them to communicate with an external TTL serial device, connect the TX pin to your device's RX pin, the RX to your device's TX pin, and the ground of your Photon/Electron to your device's ground.
 {{/unless}}
 
-**NOTE:** Please take into account that the voltage levels on these pins runs at 0V to 3.3V and should not be connected directly to a computer's RS232 serial port which operates at +/- 12V and will damage the Core/Photon/Electron.
+{{#if electron}}
+`Serial4:` This channel is optionally available via the Electron's C3(TX) and C2(RX) pins. To use Serial4, add `#include "Serial4/Serial4.h"` near the top of your app's main code file.
+
+`Serial5:` This channel is optionally available via the Electron's C1(TX) and C0(RX) pins. To use Serial5, add `#include "Serial5/Serial5.h"` near the top of your app's main code file.
+{{/if}}
+
+```C++
+// EXAMPLE USAGE
+// Include the appropriate header file for Serial2{{#if electron}}, Serial4, or Serial5{{/if}}
+#include "Serial2/Serial2.h"
+{{#if electron}}
+#include "Serial4/Serial4.h"
+#include "Serial5/Serial5.h"
+{{/if}}
+
+void setup()
+{
+  Serial2.begin(9600);
+{{#if electron}}
+  Serial4.begin(9600);
+  Serial5.begin(9600);
+{{/if}}
+
+  Serial2.println("Hello World!");
+{{#if electron}}
+  Serial4.println("Hello World!");
+  Serial5.println("Hello World!");
+{{/if}}
+}
+```
+
+To use the hardware serial pins of (Serial1/2{{#if electron}}/4/5{{/if}}) to communicate with your personal computer, you will need an additional USB-to-serial adapter. To use them to communicate with an external TTL serial device, connect the TX pin to your device's RX pin, the RX to your device's TX pin, and the ground of your Core/Photon/Electron to your device's ground.
+
+**NOTE:** Please take into account that the voltage levels on these pins operate at 0V to 3.3V and should not be connected directly to a computer's RS232 serial port which operates at +/- 12V and will damage the Core/Photon/Electron.
 
 ### begin()
 
@@ -2371,6 +2393,10 @@ Serial2.begin(speed);   // on Core via
                         // on Photon/Electron via
                         // RGB-LED green(TX) and
                         // RGB-LED blue (RX) pins
+{{#if electron}}
+Serial4.begin(speed);   // via C3(TX)/C2(RX) pins
+Serial5.begin(speed);   // via C1(TX)/C0(RX) pins
+{{/if}}
 ```
 `speed`: parameter that specifies the baud rate *(long)*
 
@@ -2466,6 +2492,10 @@ from a serial peripheral.
 - serialEvent: called when there is data available from `Serial`
 - serialEvent1: called when there is data available from `Serial1`
 - serialEvent2: called when there is data available from `Serial2`
+{{#if electron}}
+- serialEvent4: called when there is data available from `Serial4`
+- serialEvent5: called when there is data available from `Serial5`
+{{/if}}
 
 The `serialEvent` functions are called by the system as part of the application loop. Since these is an
 extension of the application loop, it is ok to call any functions at you would also call from loop().
@@ -2978,9 +3008,29 @@ NOTE: `tx_buffer` and `rx_buffer` sizes MUST be identical (of size `length`)
 Wire (I2C)
 ----
 
+{{#unless electron}}
 ![I2C](/assets/images/core-pin-i2c.jpg)
+{{/unless}}
 
-This library allows you to communicate with I2C / TWI devices. On the Core/Photon/Electron, D0 is the Serial Data Line (SDA) and D1 is the Serial Clock (SCL). Both of these pins runs at 3.3V logic but are tolerant to 5V. Connect a pull-up resistor(1.5k to 10k) on SDA line. Connect a pull-up resistor(1.5k to 10k) on SCL line.
+This library allows you to communicate with I2C / TWI(Two Wire Interface) devices. On the Core/Photon/Electron, D0 is the Serial Data Line (SDA) and D1 is the Serial Clock (SCL). {{#if electron}}Additionally on the Electron, there is an alternate pin location for the I2C interface: C4 is the Serial Data Line (SDA) and C5 is the Serial Clock (SCL).{{/if}} Both SCL and SDA pins are open-drain outputs that only pull LOW and typically operate with 3.3V logic, but are tolerant to 5V. Connect a pull-up resistor(1.5k to 10k) on the SDA line to 3V3. Connect a pull-up resistor(1.5k to 10k) on the SCL line to 3V3.  If you are using a breakout board with an I2C peripheral, check to see if it already incorporates pull-up resistors.
+
+These pins are used via the `Wire` object.
+
+* `SCL` => `D1`
+* `SDA` => `D0`
+
+{{#if electron}}
+Additionally on the Electron, there is an alternate pin location for the I2C interface, which can
+be used via the `Wire1` object. This alternate location is mapped as follows:
+* `SCL` => `C5`
+* `SDA` => `C4`
+
+**Note**: Because there are multiple I2C locations available, be sure to use the same `Wire` or `Wire1` object with all associated functions. I.e.,
+
+Do **NOT** use **Wire**.begin() with **Wire1**.write();
+
+**Do** use **Wire1**.begin() with **Wire1**.transfer();
+{{/if}}
 
 ### setSpeed()
 
